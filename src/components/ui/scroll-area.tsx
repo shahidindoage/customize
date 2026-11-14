@@ -13,7 +13,10 @@ function ScrollArea({
   return (
     <ScrollAreaPrimitive.Root
       data-slot="scroll-area"
-      className={cn("relative", className)}
+      // overflow-hidden constrains the root inside flex layouts
+      // (flex-1 + overflow-hidden resets min-height:auto) so the viewport
+      // actually scrolls instead of growing with its content.
+      className={cn("relative overflow-hidden", className)}
       {...props}
     >
       <ScrollAreaPrimitive.Viewport

@@ -2,38 +2,54 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { Menu, X } from "lucide-react";
+import { Menu, Palette, Sparkles, X } from "lucide-react";
 import { Sidebar } from "@/components/kit/sidebar";
 import { PreviewArea } from "@/components/kit/preview-area";
 import { CustomizationPanel } from "@/components/kit/customization-panel";
+import type { BuilderConfig } from "@/lib/builder-config";
+import type { Product } from "@/lib/product";
+import { useKitStore } from "@/lib/kit-store";
 import { Button } from "@/components/ui/button";
 
-export default function Home() {
+type KitBuilderAppProps = {
+  product: Product;
+  config: BuilderConfig;
+};
+
+/**
+ * Full-screen customiser rendered as the product page for products that have
+ * a BuilderConfig. Applies the product's config to the store on mount.
+ */
+export function KitBuilderApp({ product, config }: KitBuilderAppProps) {
   // Mobile drawer state for sidebar + panel
   const [sidebarOpen, setSidebarOpen] = React.useState(false);
   const [panelOpen, setPanelOpen] = React.useState(false);
 
+  const initForProduct = useKitStore((s) => s.initForProduct);
+  const setCategory = useKitStore((s) => s.setCategory);
+  React.useEffect(() => {
+    initForProduct(config);
+    setCategory(product.category);
+  }, [config, product.category, initForProduct, setCategory]);
+
   return (
     <div className="flex h-screen w-full flex-col overflow-hidden bg-background">
-      {/* Mobile top bar */}
-      <header className="flex items-center justify-between border-b border-border bg-background px-4 py-2 md:hidden">
+      {/* Mobile/tablet top bar */}
+      <header className="flex items-center justify-between border-b border-border bg-background px-4 py-2 lg:hidden">
         <Button
           variant="ghost"
           size="icon"
           onClick={() => setSidebarOpen(true)}
           aria-label="Open categories"
         >
-          <Menu className="h-5 w-5" />
+          <Menu className="h-15 w-15" />
         </Button>
-        <Link
-          href="/products"
-          aria-label="View all products"
-          className="flex items-center gap-2"
-        >
-          <div className="flex h-7 w-7 items-center justify-center rounded-md bg-primary text-primary-foreground font-black text-sm">
-            T
-          </div>
-          <span className="text-sm font-extrabold tracking-tight">TYKA</span>
+        <Link href="/" aria-label="Back to home" className="flex items-center">
+          <img
+            src="/images/logo.png"
+            alt="Kragbuzz - Play In Style"
+            className="h-12 w-auto"
+          />
         </Link>
         <Button
           variant="ghost"
@@ -41,31 +57,31 @@ export default function Home() {
           onClick={() => setPanelOpen(true)}
           aria-label="Open customisation"
         >
-          <Menu className="h-5 w-5" />
+          <Palette className="h-15 w-15" />
         </Button>
       </header>
 
       {/* Desktop three-column layout */}
-      <div className="hidden md:flex h-full min-h-0">
-        <div className="w-64 shrink-0">
+      <div className="hidden lg:flex h-full min-h-0">
+        <div className="w-56 xl:w-64 shrink-0">
           <Sidebar />
         </div>
         <div className="flex-1 min-w-0">
-          <PreviewArea />
+          <PreviewArea config={config} />
         </div>
-        <div className="w-[360px] shrink-0">
-          <CustomizationPanel />
+        <div className="w-[320px] xl:w-[380px] shrink-0">
+          <CustomizationPanel config={config} />
         </div>
       </div>
 
-      {/* Mobile main content */}
-      <main className="md:hidden flex-1 min-h-0 overflow-y-auto">
-        <PreviewArea />
+      {/* Mobile/tablet main content */}
+      <main className="lg:hidden flex-1 min-h-0 overflow-y-auto">
+        <PreviewArea config={config} />
       </main>
 
-      {/* Mobile sidebar drawer */}
+      {/* Mobile/tablet sidebar drawer */}
       {sidebarOpen && (
-        <div className="md:hidden fixed inset-0 z-50 flex">
+        <div className="lg:hidden fixed inset-0 z-50 flex">
           <div
             className="absolute inset-0 bg-black/50"
             onClick={() => setSidebarOpen(false)}
@@ -85,9 +101,9 @@ export default function Home() {
         </div>
       )}
 
-      {/* Mobile customization drawer */}
+      {/* Mobile/tablet customization drawer */}
       {panelOpen && (
-        <div className="md:hidden fixed inset-0 z-50 flex justify-end">
+        <div className="lg:hidden fixed inset-0 z-50 flex justify-end">
           <div
             className="absolute inset-0 bg-black/50"
             onClick={() => setPanelOpen(false)}
@@ -102,7 +118,7 @@ export default function Home() {
             >
               <X className="h-5 w-5" />
             </Button>
-            <CustomizationPanel />
+            <CustomizationPanel config={config} />
           </div>
         </div>
       )}

@@ -1,13 +1,20 @@
 "use client";
 
-import { ChevronRight, Eye, ShoppingBag, RefreshCw } from "lucide-react";
+import * as React from "react";
+import { ChevronRight, Eye, RefreshCw, ZoomIn, ZoomOut } from "lucide-react";
 import { useKitStore } from "@/lib/kit-store";
-import { SPORT_CATEGORIES } from "@/lib/kit-data";
+import { getCategoryName } from "@/lib/product";
+import type { BuilderConfig } from "@/lib/builder-config";
 import { JerseyPreview } from "./jersey-preview";
 import { Button } from "@/components/ui/button";
-import { useToast } from "@/hooks/use-toast";
 
-export function PreviewArea() {
+// Zoom levels: 100% base, then +10, +15, +25, +25, +25 → up to 200%
+const ZOOM_LEVELS = [1, 1.1, 1.25, 1.5, 1.75, 2];
+
+export function PreviewArea({ config }: { config: BuilderConfig }) {
+  // Preview zoom. The whole canvas area pans when zoomed in.
+  const [zoomIndex, setZoomIndex] = React.useState(0);
+  const zoom = ZOOM_LEVELS[zoomIndex];
   const activeCategory = useKitStore((s) => s.activeCategory);
   const activeDesignId = useKitStore((s) => s.activeDesignId);
   const view = useKitStore((s) => s.view);
@@ -22,21 +29,13 @@ export function PreviewArea() {
   const logoScale = useKitStore((s) => s.logoScale);
   const logoUrl = useKitStore((s) => s.logoUrl);
   const setLogoPosition = useKitStore((s) => s.setLogoPosition);
-  const addToBasket = useKitStore((s) => s.addToBasket);
+  const printX = useKitStore((s) => s.printX);
+  const printY = useKitStore((s) => s.printY);
+  const printEnabled = useKitStore((s) => s.printEnabled);
+  const setPrintPosition = useKitStore((s) => s.setPrintPosition);
   const resetKit = useKitStore((s) => s.resetKit);
-  const { toast } = useToast();
 
-  const activeCategoryObj = SPORT_CATEGORIES.find(
-    (c) => c.id === activeCategory
-  );
-
-  const handleAddToBasket = () => {
-    addToBasket();
-    toast({
-      title: "Added to basket",
-      description: `${activeDesignId} custom jersey added to your basket.`,
-    });
-  };
+  const activeCategoryName = getCategoryName(activeCategory);
 
   return (
     <section className="flex h-full flex-col bg-muted/30">
@@ -44,13 +43,13 @@ export function PreviewArea() {
       <header className="flex flex-wrap items-center justify-between gap-3 border-b border-border bg-background px-5 py-3">
         <nav
           aria-label="Breadcrumb"
-          className="flex items-center gap-1 text-xs text-muted-foreground"
+          className="hidden sm:flex items-center gap-1 text-xs text-muted-foreground"
         >
-          <span className="font-semibold text-foreground">Kit Builder</span>
+          <span className="font-semibold text-foreground">KragBuzz Customisation</span>
           <ChevronRight className="h-3 w-3" />
-          <span>{activeCategoryObj?.name ?? "—"}</span>
-          <ChevronRight className="h-3 w-3" />
-          <span>Playing Jerseys</span>
+          <span>{activeCategoryName}</span>
+          {/* <ChevronRight className="h-3 w-3" />
+          <span>Playing Jerseys</span> */}
           <ChevronRight className="h-3 w-3" />
           <span className="font-medium text-foreground">
             Customise Design ({activeDesignId})
@@ -91,8 +90,8 @@ export function PreviewArea() {
       </header>
 
       {/* Main canvas */}
-      <div className="relative flex flex-1 items-center justify-center overflow-hidden p-6">
-        {/* Decorative grid background */}
+      <div className="relative flex flex-1 flex-col overflow-hidden">
+        {/* Decorative grid background (fixed, does not scroll with zoom) */}
         <div
           aria-hidden
           className="absolute inset-0 opacity-50"
@@ -103,48 +102,86 @@ export function PreviewArea() {
           }}
         />
 
-        {/* Jersey preview */}
-        <div className="relative z-10 flex w-full max-w-md flex-col items-center">
-          <div className="mb-3 flex items-center gap-2 rounded-full bg-background px-3 py-1 shadow-sm border border-border">
+        {/* View badge - fixed above the zoom area */}
+        <div className="relative z-10 flex justify-center pt-4">
+          <div className="flex items-center gap-2 rounded-full bg-background px-3 py-1 shadow-sm border border-border">
             <span className="h-2 w-2 rounded-full bg-emerald-500" />
             <span className="text-xs text-muted-foreground">
               {view === "front" ? "Front view" : "Back view"} • Model{" "}
               {activeDesignId}
             </span>
           </div>
-          <div className="aspect-[456/547] w-full max-w-sm drop-shadow-2xl">
-            <JerseyPreview
-              view={view}
-              colors={colors}
-              playerName={playerName}
-              playerNumber={playerNumber}
-              collarStyle={collarStyle}
-              logoEnabled={logoEnabled}
-              logoX={logoX}
-              logoY={logoY}
-              logoScale={logoScale}
-              logoUrl={logoUrl}
-              onLogoMove={setLogoPosition}
-              className="h-full w-full"
-            />
-          </div>
-          <div className="mt-4 max-w-sm text-center">
-            <p className="text-xs text-muted-foreground">
-              Customise your kit with your team colours. Premium fabric,
-              fully sublimated printing, and tailored service for your team.
-            </p>
+        </div>
+
+        {/* Zoomable canvas - fills the whole area, pannable when zoomed.
+            Scrollbar hidden; pan with wheel/touch still works. */}
+        <div className="relative z-10 flex-1 overflow-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          <div className="flex min-h-full min-w-full items-center justify-center p-6">
+            <div
+              className="aspect-[456/547] drop-shadow-2xl"
+              style={{ width: `calc(${zoom} * min(100%, 28rem))` }}
+            >
+              <JerseyPreview
+                config={config}
+                view={view}
+                colors={colors ?? config.defaultColors}
+                playerName={playerName}
+                playerNumber={playerNumber}
+                collarStyle={collarStyle}
+                logoEnabled={logoEnabled}
+                logoX={logoX}
+                logoY={logoY}
+                logoScale={logoScale}
+                logoUrl={logoUrl}
+                onLogoMove={setLogoPosition}
+                printX={printX}
+                printY={printY}
+                printEnabled={printEnabled}
+                onPrintMove={setPrintPosition}
+                className="h-full w-full"
+              />
+            </div>
           </div>
         </div>
 
-        {/* Quick add to basket button floating */}
-        <Button
-          onClick={handleAddToBasket}
-          className="absolute bottom-4 right-4 gap-2 shadow-lg"
-          size="sm"
-        >
-          <ShoppingBag className="h-4 w-4" />
-          Add to Basket
-        </Button>
+        {/* Caption - fixed below the zoom area */}
+        {/* <div className="relative z-10 flex justify-center px-6 pb-4">
+          <p className="max-w-sm text-center text-xs text-muted-foreground">
+            Customise your kit with your team colours. Premium fabric,
+            fully sublimated printing, and tailored service for your team.
+          </p>
+        </div> */}
+
+        {/* Zoom controls - fixed at the right edge of the whole area */}
+        <div className="absolute right-4 top-1/2 z-30 hidden sm:flex -translate-y-1/2 flex-col items-center gap-1.5">
+              <Button
+                variant="outline"
+                size="icon"
+                className="h-9 w-9 rounded-full border-border bg-background shadow-sm"
+                onClick={() =>
+                  setZoomIndex((i) =>
+                    Math.min(ZOOM_LEVELS.length - 1, i + 1)
+                  )
+                }
+                disabled={zoomIndex >= ZOOM_LEVELS.length - 1}
+                aria-label="Zoom in"
+              >
+                <ZoomIn className="h-4 w-4" aria-hidden />
+              </Button>
+              <span className="rounded-full border border-border bg-background px-2 py-0.5 text-[10px] font-semibold text-muted-foreground shadow-sm">
+                {Math.round(zoom * 100)}%
+              </span>
+              <Button
+                variant="outline"
+                size="icon"
+                className="h-9 w-9 rounded-full border-border bg-background shadow-sm"
+                onClick={() => setZoomIndex((i) => Math.max(0, i - 1))}
+                disabled={zoomIndex <= 0}
+                aria-label="Zoom out"
+              >
+                <ZoomOut className="h-4 w-4" aria-hidden />
+              </Button>
+        </div>
       </div>
     </section>
   );

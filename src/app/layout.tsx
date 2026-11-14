@@ -1,35 +1,38 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Big_Shoulders, Inter } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "@/components/ui/toaster";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+const inter = Inter({
+  variable: "--font-inter",
   subsets: ["latin"],
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
+const bigShoulders = Big_Shoulders({
+  variable: "--font-big-shoulders",
   subsets: ["latin"],
 });
 
 export const metadata: Metadata = {
-  title: "TYKA Kit Builder — Custom Jersey Designer",
-  description: "Design your own custom sports jersey with the TYKA Kit Builder. Pick your colours, collar style, pattern, and personalisation.",
-  keywords: ["Kit Builder", "TYKA", "custom jersey", "sports kit", "jersey designer", "sublimated kit"],
-  authors: [{ name: "TYKA Kit Builder" }],
+  title: {
+    default: "Kragbuzz - Custom Sportswear & Kit Builder",
+    template: "%s - Kragbuzz",
+  },
+  description: "Design your own custom sports jersey with the Kragbuzz Kit Builder. Pick your colours, collar style, pattern, and personalisation.",
+  keywords: ["Kit Builder", "Kragbuzz", "custom jersey", "sports kit", "jersey designer", "sublimated kit"],
+  authors: [{ name: "Kragbuzz" }],
   icons: {
-    icon: "/logo.svg",
+    icon: "/images/logo.png",
   },
   openGraph: {
-    title: "TYKA Kit Builder",
+    title: "Kragbuzz - Custom Sportswear & Kit Builder",
     description: "Design your own custom sports jersey",
-    siteName: "TYKA Kit Builder",
+    siteName: "Kragbuzz",
     type: "website",
   },
   twitter: {
     card: "summary_large_image",
-    title: "TYKA Kit Builder",
+    title: "Kragbuzz - Custom Sportswear & Kit Builder",
     description: "Design your own custom sports jersey",
   },
 };
@@ -42,7 +45,7 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased bg-background text-foreground`}
+        className={`${inter.variable} ${bigShoulders.variable} antialiased bg-background text-foreground`}
       >
         {children}
         <Toaster />

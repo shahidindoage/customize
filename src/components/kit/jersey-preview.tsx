@@ -1,19 +1,15 @@
 "use client";
 
 import * as React from "react";
+import { Download } from "lucide-react";
+import { getHexByCode, type KitView, type ColorSlotKey } from "@/lib/kit-data";
 import {
-  COLOR_PALETTE,
-  DEFAULT_COLLAR_STYLE,
-  DEFAULT_LOGO,
-  LOGO_ASSET,
-  VIEW_LAYERS,
-  getCollarAsset,
-  getHexByCode,
-  type ColorSlotKey,
-  type KitView,
-} from "@/lib/kit-data";
+  resolveCollarAsset,
+  type BuilderConfig,
+} from "@/lib/builder-config";
 
 type JerseyPreviewProps = {
+  config: BuilderConfig;
   view: KitView;
   colors: Record<ColorSlotKey, string>;
   playerName?: string;
@@ -25,20 +21,117 @@ type JerseyPreviewProps = {
   logoScale?: number;
   logoUrl?: string;
   onLogoMove?: (x: number, y: number) => void;
+  printX?: number;
+  printY?: number;
+  printEnabled?: boolean;
+  onPrintMove?: (x: number, y: number) => void;
+  // When set, shows a download button that exports the composite as a PNG
+  downloadName?: string;
   className?: string;
 };
 
 const clampLogo = (value: number) => Math.min(96, Math.max(4, value));
 
+// Cache of collar-hole masks (grey-painted canvases) keyed by asset path
+const collarHoleCache = new Map<string, HTMLCanvasElement>();
+
 /**
- * Loads the layered PNG assets for the given view, recolors each layer
- * according to the chosen colour slot, and composites them onto a canvas.
+ * Builds a canvas of the collar asset's inner hole painted flat grey.
+ * The hole = transparent pixels enclosed by the solid ring band (found via
+ * flood fill from the image borders). Drawing this under the recoloured
+ * ring makes the in-between-collar area always grey, with no gaps, for any
+ * collar style.
+ */
+const buildCollarHole = (img: HTMLImageElement, src: string): HTMLCanvasElement | null => {
+  const cached = collarHoleCache.get(src);
+  if (cached) return cached;
+
+  const iw = img.naturalWidth || img.width;
+  const ih = img.naturalHeight || img.height;
+  const c = document.createElement("canvas");
+  c.width = iw;
+  c.height = ih;
+  const ictx = c.getContext("2d");
+  if (!ictx) return null;
+  ictx.drawImage(img, 0, 0);
+  const imgData = ictx.getImageData(0, 0, iw, ih);
+  const px = imgData.data;
+  const n = iw * ih;
+  const SOLID = 250; // pixels at/above this alpha belong to the ring band
+
+  // Bounding box of the solid ring (containment guard against fill leaks)
+  let minX = iw;
+  let maxX = -1;
+  let minY = ih;
+  let maxY = -1;
+  for (let i = 0; i < n; i++) {
+    if (px[i * 4 + 3] >= SOLID) {
+      const x = i % iw;
+      const y = (i / iw) | 0;
+      if (x < minX) minX = x;
+      if (x > maxX) maxX = x;
+      if (y < minY) minY = y;
+      if (y > maxY) maxY = y;
+    }
+  }
+  if (maxX < 0) return null;
+
+  // Flood fill the outside transparent region from the image borders
+  const outside = new Uint8Array(n);
+  const stack: number[] = [];
+  const seed = (x: number, y: number) => {
+    const i = y * iw + x;
+    if (!outside[i] && px[i * 4 + 3] < SOLID) {
+      outside[i] = 1;
+      stack.push(i);
+    }
+  };
+  for (let x = 0; x < iw; x++) {
+    seed(x, 0);
+    seed(x, ih - 1);
+  }
+  for (let y = 0; y < ih; y++) {
+    seed(0, y);
+    seed(iw - 1, y);
+  }
+  while (stack.length > 0) {
+    const i = stack.pop() as number;
+    const x = i % iw;
+    const y = (i / iw) | 0;
+    if (x > 0) seed(x - 1, y);
+    if (x < iw - 1) seed(x + 1, y);
+    if (y > 0) seed(x, y - 1);
+    if (y < ih - 1) seed(x, y + 1);
+  }
+
+  // Enclosed transparent pixels within the ring's bbox = the hole → grey
+  let painted = 0;
+  for (let i = 0; i < n; i++) {
+    if (outside[i]) continue;
+    const a = px[i * 4 + 3];
+    if (a >= SOLID) continue;
+    const x = i % iw;
+    const y = (i / iw) | 0;
+    if (x < minX - 2 || x > maxX + 2 || y < minY - 2 || y > maxY + 2) continue;
+    px[i * 4] = 196; // #C4C4C4
+    px[i * 4 + 1] = 196;
+    px[i * 4 + 2] = 196;
+    px[i * 4 + 3] = 255;
+    painted++;
+  }
+  if (painted === 0) return null;
+  ictx.putImageData(imgData, 0, 0);
+  collarHoleCache.set(src, c);
+  return c;
+};
+
+/**
+ * Loads the product's layered PNG assets for the given view, recolors each
+ * layer according to the chosen colour slot, and composites them onto a canvas.
  *
- * Layered PNGs (body.png, sleeves.png, etc.) are loaded if present in
- * /public/jersey/. For any layer without a PNG, the optional fallback
- * asset (e.g. the flat base photo) is used instead — this lets us ship
- * a working single-colour preview today and auto-upgrade to multi-colour
- * the moment the designer delivers the layered assets.
+ * Layers are defined per product in src/lib/builder-config.ts and the files
+ * live in /public/products/<slug>/. For any layer whose PNG is missing, the
+ * optional fallback asset (e.g. the flat base photo) is used instead.
  *
  * Recoloring technique (verified):
  *   For each pixel in the source PNG:
@@ -48,22 +141,37 @@ const clampLogo = (value: number) => Math.min(96, Math.max(4, value));
  *         showing the chosen colour clearly.
  */
 export function JerseyPreview({
+  config,
   view,
   colors,
   playerName,
   playerNumber,
-  collarStyle = DEFAULT_COLLAR_STYLE,
-  logoEnabled = DEFAULT_LOGO.enabled,
-  logoX = DEFAULT_LOGO.x,
-  logoY = DEFAULT_LOGO.y,
-  logoScale = DEFAULT_LOGO.scale,
-  logoUrl = DEFAULT_LOGO.url,
+  collarStyle = config.defaultCollarStyle,
+  logoEnabled = config.defaultLogo.enabled,
+  logoX = config.defaultLogo.x,
+  logoY = config.defaultLogo.y,
+  logoScale = config.defaultLogo.scale,
+  logoUrl = config.defaultLogo.url,
   onLogoMove,
+  printX = config.defaultPrint.x,
+  printY = config.defaultPrint.y,
+  printEnabled = config.defaultPrint.enabled,
+  onPrintMove,
+  downloadName,
   className,
 }: JerseyPreviewProps) {
   const canvasRef = React.useRef<HTMLCanvasElement | null>(null);
   const wrapperRef = React.useRef<HTMLDivElement | null>(null);
+  const logoImgRef = React.useRef<HTMLImageElement | null>(null);
+  // Sequence counter for async renders — only the latest may paint
+  const renderSeqRef = React.useRef(0);
+  // Key of the last rendered view (product|view|collar) — detects switches
+  const lastRenderKeyRef = React.useRef<string>("");
+  // Cached composite of the recoloured layers (without the print). Print
+  // dragging redraws only this composite + text, so drags stay smooth.
+  const baseCanvasRef = React.useRef<HTMLCanvasElement | null>(null);
   const [draggingLogo, setDraggingLogo] = React.useState(false);
+  const [draggingPrint, setDraggingPrint] = React.useState(false);
   const [status, setStatus] = React.useState<"loading" | "ready" | "error">(
     "loading"
   );
@@ -76,14 +184,14 @@ export function JerseyPreview({
   // the selected style (front) or the shared back collar.
   const layers = React.useMemo(
     () =>
-      [...VIEW_LAYERS[view].layers]
+      [...config.views[view].layers]
         .sort((a, b) => a.order - b.order)
         .map((layer) =>
           layer.slot === "collarColour"
-            ? { ...layer, assetPath: getCollarAsset(view, collarStyle) }
+            ? { ...layer, assetPath: resolveCollarAsset(config, view, collarStyle) }
             : layer
         ),
-    [view, collarStyle]
+    [config, view, collarStyle]
   );
 
   // Load an image, with on-error handling that returns null for missing PNGs
@@ -117,7 +225,8 @@ export function JerseyPreview({
     (
       img: HTMLImageElement,
       hexColor: string,
-      uniform = false
+      uniform = false,
+      fixed = false
     ): HTMLCanvasElement => {
       const w = img.naturalWidth || img.width;
       const h = img.naturalHeight || img.height;
@@ -150,6 +259,17 @@ export function JerseyPreview({
         const a = px[i + 3];
         if (a === 0) continue; // skip fully-transparent pixels
 
+        if (fixed) {
+          // Fixed layers are painted a uniform grey (in-collar lining) —
+          // this wipes any baked-in branding from the source asset and the
+          // area stays grey no matter which colours are picked.
+          px[i] = 196; // #C4C4C4
+          px[i + 1] = 196;
+          px[i + 2] = 196;
+          px[i + 3] = Math.min(255, a * 4);
+          continue;
+        }
+
         // Use luminance as the shading multiplier.
         // Collar overlays use near-uniform shading so the pre-baked grey
         // lining inside the collar doesn't render as a second, darker tone.
@@ -170,7 +290,8 @@ export function JerseyPreview({
     []
   );
 
-  // Draw player name + number on back view
+  // Draw player name + number on back view at the given anchor (% of canvas).
+  // The name stays a fixed offset below the number.
   const drawBackPrint = React.useCallback(
     (
       ctx: CanvasRenderingContext2D,
@@ -178,34 +299,81 @@ export function JerseyPreview({
       h: number,
       name: string,
       number: string,
-      color: string
+      color: string,
+      x: number,
+      y: number
     ) => {
       const num = number || "10";
       const nm = (name || "PLAYER").toUpperCase();
+      const cx = (x / 100) * w;
+      const cy = (y / 100) * h;
 
       ctx.save();
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
       ctx.fillStyle = color;
 
-      // Number - large, centered on upper back
+      // Number - large, centered on the anchor
       ctx.font = `900 ${Math.round(h * 0.22)}px Arial, sans-serif`;
-      ctx.fillText(num, w / 2, h * 0.45);
+      ctx.fillText(num, cx, cy);
 
-      // Name - smaller, curved/straight above or below number
+      // Name - smaller, below the number
       ctx.font = `800 ${Math.round(h * 0.05)}px Arial, sans-serif`;
-      ctx.fillText(nm, w / 2, h * 0.62);
+      ctx.fillText(nm, cx, cy + h * 0.17);
       ctx.restore();
     },
     []
   );
 
-  // Main render: load all layers, recolor each, composite onto visible canvas
+  // Cheap redraw of the visible canvas from the cached base composite.
+  // Runs on print drag / name/number typing without re-recolouring layers.
+  const compositeFromBase = React.useCallback(() => {
+    const canvas = canvasRef.current;
+    const base = baseCanvasRef.current;
+    if (!canvas || !base) return;
+    canvas.width = base.width;
+    canvas.height = base.height;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    ctx.clearRect(0, 0, base.width, base.height);
+    ctx.drawImage(base, 0, 0);
+    if (view === "back" && printEnabled) {
+      const nameHex = getHexByCode(colors.nameNumber ?? "02");
+      drawBackPrint(
+        ctx,
+        base.width,
+        base.height,
+        playerName ?? "",
+        playerNumber ?? "",
+        nameHex,
+        printX,
+        printY
+      );
+    }
+  }, [view, colors, playerName, playerNumber, printX, printY, printEnabled, drawBackPrint]);
+
+  // Main render: load all layers, recolor each, composite onto visible canvas.
+  // Async (image loading) — a sequence counter discards stale runs so a slow
+  // older render can never paint over a newer one (e.g. after a product
+  // switch, old colours finishing last would overwrite the new ones).
   const render = React.useCallback(async () => {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
+    const seq = ++renderSeqRef.current;
+
     setStatus("loading");
+
+    // On a view/product switch, wipe the previous view right away instead of
+    // letting it linger behind the loading state. Colour-only changes keep
+    // the canvas (smooth recolour) — only view/collar/product switches clear.
+    const renderKey = `${config.assetsBase}|${view}|${collarStyle}`;
+    if (renderKey !== lastRenderKeyRef.current) {
+      const clearCtx = canvas.getContext("2d");
+      if (clearCtx) clearCtx.clearRect(0, 0, canvas.width, canvas.height);
+      baseCanvasRef.current = null;
+      lastRenderKeyRef.current = renderKey;
+    }
 
     try {
       // Determine which layers actually have a usable asset.
@@ -226,10 +394,13 @@ export function JerseyPreview({
         layerAssets.push({ layer, img, hex });
       }
 
+      // A newer render superseded this one — discard it entirely
+      if (seq !== renderSeqRef.current) return;
+
       if (layerAssets.length === 0) {
         setStatus("error");
         setErrorMsg(
-          "No jersey assets found. Add PNGs to /public/jersey/ (front-body.png, etc.)"
+          `No jersey assets found. Add the product's layer PNGs to ${config.assetsBase}/`
         );
         return;
       }
@@ -238,41 +409,41 @@ export function JerseyPreview({
       const base = layerAssets[0].img;
       const w = base.naturalWidth || base.width;
       const h = base.naturalHeight || base.height;
-      canvas.width = w;
-      canvas.height = h;
-      const ctx = canvas.getContext("2d");
-      if (!ctx) {
+
+      // Composite the recoloured layers into a cached offscreen canvas.
+      // Print dragging re-uses this cache instead of re-recoulouring.
+      const baseCanvas = document.createElement("canvas");
+      baseCanvas.width = w;
+      baseCanvas.height = h;
+      const bctx = baseCanvas.getContext("2d");
+      if (!bctx) {
         setStatus("error");
         setErrorMsg("Canvas not supported.");
         return;
       }
-
-      // Clear
-      ctx.clearRect(0, 0, w, h);
-
-      // Draw each recolored layer bottom-up
+      bctx.clearRect(0, 0, w, h);
       for (const { layer, img, hex } of layerAssets) {
+        // Paint the collar ring's inner hole flat grey before drawing the
+        // recoloured ring, so the in-between-collar area stays grey always.
+        if (layer.slot === "collarColour" && view === "front") {
+          const hole = buildCollarHole(img, layer.assetPath);
+          if (hole) bctx.drawImage(hole, 0, 0, w, h);
+        }
         const recolored = recolorLayer(
           img,
           hex,
-          layer.slot === "collarColour"
+          layer.slot === "collarColour",
+          layer.fixed === true
         );
-        ctx.drawImage(recolored, 0, 0, w, h);
+        bctx.drawImage(recolored, 0, 0, w, h);
       }
+      baseCanvasRef.current = baseCanvas;
 
-      // Back view: draw name + number
-      if (view === "back") {
-        const nameHex = getHexByCode(colors.nameNumber ?? "02");
-        drawBackPrint(
-          ctx,
-          w,
-          h,
-          playerName ?? "",
-          playerNumber ?? "",
-          nameHex
-        );
-      }
+      // Superseded while compositing — let the newer render own the canvas
+      if (seq !== renderSeqRef.current) return;
 
+      // Draw the cached composite (+ back print) onto the visible canvas
+      compositeFromBase();
       setStatus("ready");
     } catch (err) {
       setStatus("error");
@@ -282,17 +453,21 @@ export function JerseyPreview({
     layers,
     colors,
     view,
-    playerName,
-    playerNumber,
+    config.assetsBase,
     loadImage,
     recolorLayer,
-    drawBackPrint,
+    compositeFromBase,
   ]);
 
-  // Re-render whenever any input changes
+  // Full re-render whenever layer inputs change
   React.useEffect(() => {
     void render();
   }, [render]);
+
+  // Cheap redraw when only the print position / text changes
+  React.useEffect(() => {
+    compositeFromBase();
+  }, [compositeFromBase]);
 
   // Drag the front logo to reposition it (percentages of the preview box).
   const updateLogoFromPointer = React.useCallback(
@@ -340,6 +515,83 @@ export function JerseyPreview({
     onLogoMove(clampLogo(logoX + move[0]), clampLogo(logoY + move[1]));
   };
 
+  // Drag the back-view name/number block to reposition it.
+  const updatePrintFromPointer = React.useCallback(
+    (e: React.PointerEvent<HTMLDivElement>) => {
+      const el = wrapperRef.current;
+      if (!el || !onPrintMove) return;
+      const rect = el.getBoundingClientRect();
+      onPrintMove(
+        clampLogo(((e.clientX - rect.left) / rect.width) * 100),
+        clampLogo(((e.clientY - rect.top) / rect.height) * 100)
+      );
+    },
+    [onPrintMove]
+  );
+
+  const handlePrintPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    e.currentTarget.setPointerCapture(e.pointerId);
+    setDraggingPrint(true);
+    updatePrintFromPointer(e);
+  };
+
+  const handlePrintPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (draggingPrint) updatePrintFromPointer(e);
+  };
+
+  const handlePrintPointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
+    setDraggingPrint(false);
+    if (e.currentTarget.hasPointerCapture(e.pointerId)) {
+      e.currentTarget.releasePointerCapture(e.pointerId);
+    }
+  };
+
+  const handlePrintKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (!onPrintMove) return;
+    const step = e.shiftKey ? 1 : 3;
+    const moves: Record<string, [number, number]> = {
+      ArrowLeft: [-step, 0],
+      ArrowRight: [step, 0],
+      ArrowUp: [0, -step],
+      ArrowDown: [0, step],
+    };
+    const move = moves[e.key];
+    if (!move) return;
+    e.preventDefault();
+    onPrintMove(clampLogo(printX + move[0]), clampLogo(printY + move[1]));
+  };
+
+  // Export the composite (layers + front logo + back print) as a PNG.
+  const handleDownload = () => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    try {
+      const exp = document.createElement("canvas");
+      exp.width = canvas.width;
+      exp.height = canvas.height;
+      const ctx = exp.getContext("2d");
+      if (!ctx) return;
+      ctx.drawImage(canvas, 0, 0);
+      // The front logo is an HTML overlay — bake it into the export
+      if (view === "front" && logoEnabled) {
+        const img = logoImgRef.current;
+        if (img && img.complete && img.naturalWidth > 0) {
+          const lw = (logoScale / 100) * canvas.width;
+          const lh = lw * (img.naturalHeight / img.naturalWidth);
+          const cx = (logoX / 100) * canvas.width;
+          const cy = (logoY / 100) * canvas.height;
+          ctx.drawImage(img, cx - lw / 2, cy - lh / 2, lw, lh);
+        }
+      }
+      const a = document.createElement("a");
+      a.href = exp.toDataURL("image/png");
+      a.download = downloadName || `${config.productId}-${view}.png`;
+      a.click();
+    } catch {
+      // Tainted canvas (cross-origin logo URL) — nothing we can do
+    }
+  };
+
   return (
     <div ref={wrapperRef} className={className} style={{ position: "relative" }}>
       <canvas
@@ -348,17 +600,51 @@ export function JerseyPreview({
         style={{ objectFit: "contain" }}
         aria-label={`Jersey ${view} view`}
       />
+      {downloadName && (
+        <button
+          type="button"
+          onClick={handleDownload}
+          title="Download design"
+          aria-label={`Download ${view} design`}
+          className="absolute right-2 top-2 z-30 flex h-7 w-7 items-center justify-center rounded-full border border-border bg-white/90 text-foreground shadow-sm transition-colors hover:bg-white"
+        >
+          <Download className="h-3.5 w-3.5" aria-hidden />
+        </button>
+      )}
+      {view === "back" && printEnabled && onPrintMove && (
+        // Invisible drag surface over the name/number block — nothing drawn.
+        <div
+          role="button"
+          tabIndex={0}
+          aria-label="Drag or use arrow keys to move the name and number"
+          onPointerDown={handlePrintPointerDown}
+          onPointerMove={handlePrintPointerMove}
+          onPointerUp={handlePrintPointerUp}
+          onPointerCancel={handlePrintPointerUp}
+          onKeyDown={handlePrintKeyDown}
+          className="absolute z-20 cursor-move"
+          style={{
+            left: `${printX}%`,
+            top: `${printY - 12}%`,
+            width: "52%",
+            height: "42%",
+            transform: "translateX(-50%)",
+            touchAction: "none",
+          }}
+        />
+      )}
       {view === "front" && logoEnabled && (
         <img
-          src={logoUrl || LOGO_ASSET}
+          src={logoUrl || config.defaultLogo.url}
           alt="Team logo"
           draggable={false}
           role="button"
           tabIndex={0}
+          ref={logoImgRef}
           aria-label="Drag or use arrow keys to move the logo"
           onError={(e) => {
             e.currentTarget.onerror = null;
-            e.currentTarget.src = LOGO_ASSET;
+            e.currentTarget.src = config.defaultLogo.url;
           }}
           onPointerDown={handleLogoPointerDown}
           onPointerMove={handleLogoPointerMove}
@@ -379,8 +665,12 @@ export function JerseyPreview({
         />
       )}
       {status === "loading" && (
-        <div className="pointer-events-none absolute inset-0 flex items-center justify-center text-xs text-muted-foreground">
-          Rendering…
+        <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+          <span
+            aria-hidden
+            className="h-9 w-9 animate-spin rounded-full border-[3px] border-muted-foreground/25 border-t-red-600"
+          />
+          <span className="sr-only">Loading…</span>
         </div>
       )}
       {status === "error" && (
@@ -391,6 +681,3 @@ export function JerseyPreview({
     </div>
   );
 }
-
-// Silence unused import warning - COLOR_PALETTE is re-exported for the panel
-export { COLOR_PALETTE };

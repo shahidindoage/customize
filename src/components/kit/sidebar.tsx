@@ -2,198 +2,149 @@
 
 import * as React from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import {
-  Sparkles,
   Circle,
   CircleDot,
-  Shield,
-  Disc,
-  SunMedium,
   Dumbbell,
+  Shield,
+  SunMedium,
   Shirt,
-  Volleyball,
-  ShoppingCart,
+  ChevronDown,
   type LucideIcon,
 } from "lucide-react";
-import { SPORT_CATEGORIES, getCollarStyle, getHexByCode } from "@/lib/kit-data";
+import { CATEGORIES, PRODUCTS } from "@/lib/product";
 import { useKitStore } from "@/lib/kit-store";
 import { cn } from "@/lib/utils";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetTrigger,
-} from "@/components/ui/sheet";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
 const ICONS: Record<string, LucideIcon> = {
-  Sparkles,
+  Shirt,
   Circle,
   CircleDot,
   Shield,
-  Disc,
   SunMedium,
   Dumbbell,
-  Shirt,
-  Volleyball,
 };
 
 export function Sidebar() {
-  const activeCategory = useKitStore((s) => s.activeCategory);
+  const pathname = usePathname();
   const setCategory = useKitStore((s) => s.setCategory);
-  const basket = useKitStore((s) => s.basket);
-  const removeFromBasket = useKitStore((s) => s.removeFromBasket);
-  const clearBasket = useKitStore((s) => s.clearBasket);
 
-  const basketCount = basket.reduce((acc, i) => acc + i.quantity, 0);
-  const [open, setOpen] = React.useState(false);
+  // Dropdown state: categories expand to reveal their products.
+  // All start collapsed; click a category to open it.
+  const [openCategories, setOpenCategories] = React.useState<Set<string>>(
+    () => new Set()
+  );
 
-  const handleCategoryClick = (id: string) => {
-    setCategory(id);
+  const toggleCategory = (id: string) => {
+    setOpenCategories((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
   };
 
   return (
     <aside className="flex h-full w-full flex-col border-r border-border bg-sidebar">
       {/* Brand */}
       <Link
-        href="/products"
-        aria-label="View all products"
-        className="flex items-center gap-2 px-5 py-5 border-b border-sidebar-border transition-opacity hover:opacity-80"
+        href="/"
+        aria-label="Back to home"
+        className="flex items-center gap-2 px-5 py-4 border-b border-sidebar-border transition-opacity hover:opacity-80"
       >
-        <div className="flex h-9 w-9 items-center justify-center rounded-md bg-primary text-primary-foreground font-black text-lg">
-          T
-        </div>
-        <div className="flex flex-col leading-tight">
-          <span className="text-base font-extrabold tracking-tight">
-            TYKA
-          </span>
-          <span className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
-            Kit Builder
-          </span>
-        </div>
+        <img
+          src="/images/logo.png"
+          alt="Kragbuzz - Play In Style"
+          className="h-10 w-auto"
+        />
+        <span className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
+          KragBuzz Customisation
+        </span>
       </Link>
 
-      {/* Category list */}
+      {/* Category → product dropdowns */}
       <ScrollArea className="flex-1 px-3 py-4">
         <nav className="flex flex-col gap-1">
           <div className="px-2 pb-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
             Categories
           </div>
-          {SPORT_CATEGORIES.map((cat) => {
+          {CATEGORIES.map((cat) => {
             const Icon = ICONS[cat.icon] ?? Circle;
-            const isActive = activeCategory === cat.id;
+            const products = PRODUCTS.filter((p) => p.category === cat.id);
+            const isOpen = openCategories.has(cat.id);
             return (
-              <button
-                key={cat.id}
-                onClick={() => handleCategoryClick(cat.id)}
-                className={cn(
-                  "group flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium transition-colors",
-                  "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
-                  isActive &&
-                    "bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground"
+              <div key={cat.id} className="flex flex-col">
+                <button
+                  onClick={() => toggleCategory(cat.id)}
+                  aria-expanded={isOpen}
+                  className="group flex items-center gap-2.5 rounded-md px-3 py-2.5 text-sm font-medium transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                >
+                  <Icon
+                    className="h-4 w-4 shrink-0 text-muted-foreground group-hover:text-sidebar-accent-foreground"
+                    aria-hidden
+                  />
+                  <span className="min-w-0 flex-1 truncate text-left">
+                    {cat.name}
+                  </span>
+                  <ChevronDown
+                    className={cn(
+                      "h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform",
+                      isOpen && "rotate-180"
+                    )}
+                    aria-hidden
+                  />
+                </button>
+
+                {isOpen && (
+                  <div className="mb-1 ml-9 mr-1 flex flex-col gap-0.5">
+                    {products.length === 0 ? (
+                      <p className="px-2 py-1.5 text-[11px] text-muted-foreground">
+                        No products yet
+                      </p>
+                    ) : (
+                      products.map((product) => {
+                        const href = `/customise/${product.slug}`;
+                        const isActive = pathname === href;
+                        return (
+                          <Link
+                            key={product.id}
+                            href={href}
+                            onClick={() => setCategory(cat.id)}
+                            className={cn(
+                              "flex items-center justify-between gap-2 rounded-md px-2 py-1.5 text-[13px] transition-colors",
+                              "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+                              isActive
+                                ? "bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground"
+                                : "text-muted-foreground"
+                            )}
+                          >
+                            <span className="truncate">{product.name}</span>
+                            <span
+                              className={cn(
+                                "shrink-0 text-[10px] tabular-nums",
+                                isActive
+                                  ? "text-primary-foreground/70"
+                                  : "text-muted-foreground/70"
+                              )}
+                            >
+                              {product.designId}
+                            </span>
+                          </Link>
+                        );
+                      })
+                    )}
+                  </div>
                 )}
-              >
-                <Icon
-                  className={cn(
-                    "h-4 w-4 shrink-0",
-                    isActive ? "text-primary-foreground" : "text-muted-foreground group-hover:text-sidebar-accent-foreground"
-                  )}
-                />
-                <span className="flex-1 text-left">{cat.name}</span>
-              </button>
+              </div>
             );
           })}
         </nav>
       </ScrollArea>
-
-      {/* Basket button */}
-      <div className="border-t border-sidebar-border p-3">
-        <Sheet open={open} onOpenChange={setOpen}>
-          <SheetTrigger asChild>
-            <Button className="w-full justify-between" variant="default">
-              <span className="flex items-center gap-2">
-                <ShoppingCart className="h-4 w-4" />
-                View Basket
-              </span>
-              {basketCount > 0 && (
-                <Badge
-                  variant="secondary"
-                  className="bg-primary-foreground text-primary"
-                >
-                  {basketCount}
-                </Badge>
-              )}
-            </Button>
-          </SheetTrigger>
-          <SheetContent className="w-full sm:max-w-md overflow-y-auto">
-            <SheetHeader>
-              <SheetTitle>Your Basket</SheetTitle>
-              <p className="text-sm text-muted-foreground">
-                {basketCount === 0
-                  ? "Your basket is empty."
-                  : `${basketCount} item${basketCount > 1 ? "s" : ""} ready to order.`}
-              </p>
-            </SheetHeader>
-
-            {basket.length > 0 && (
-              <div className="mt-4 flex flex-col gap-3">
-                {basket.map((item) => (
-                  <div
-                    key={item.id}
-                    className="rounded-md border border-border p-3 bg-card"
-                  >
-                    <div className="flex justify-between items-start gap-2">
-                      <div>
-                        <div className="font-semibold text-sm">
-                          {item.designName}
-                        </div>
-                        <div className="text-xs text-muted-foreground">
-                          {item.designId} • {getCollarStyle(item.collarStyle).name} • Size {item.size} • Qty {item.quantity}
-                        </div>
-                        {item.playerName && (
-                          <div className="text-xs text-muted-foreground mt-1">
-                            {item.playerName} #{item.playerNumber}
-                          </div>
-                        )}
-                      </div>
-                      <button
-                        onClick={() => removeFromBasket(item.id)}
-                        className="text-xs text-destructive hover:underline"
-                      >
-                        Remove
-                      </button>
-                    </div>
-                    {/* mini color swatches */}
-                    <div className="mt-2 flex gap-1">
-                      {Object.entries(item.colors).map(([k, code]) => {
-                        const hex = getHexByCode(code);
-                        return (
-                          <div
-                            key={k}
-                            className="h-4 w-4 rounded-sm border border-border"
-                            style={{ backgroundColor: hex }}
-                            title={`${k}: ${code}`}
-                          />
-                        );
-                      })}
-                    </div>
-                  </div>
-                ))}
-                <Button
-                  variant="outline"
-                  onClick={() => clearBasket()}
-                  className="mt-2"
-                >
-                  Clear basket
-                </Button>
-              </div>
-            )}
-          </SheetContent>
-        </Sheet>
-      </div>
     </aside>
   );
 }
