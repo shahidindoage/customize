@@ -40,6 +40,7 @@ const CR2150_ASSETS = "/products/sublimated-pro-jersey";
 const CR2300_ASSETS = "/products/classic-jersey";
 const CR2350_ASSETS = "/products/classic-jersey";
 const CR2400_ASSETS = "/products/classic-jersey";
+const CR2700_ASSETS = "/products/jersey-3";
 
 const cr2000Asset = (name: string) => `${CR2000_ASSETS}/${name}`;
 const cr2100Asset = (name: string) => `${CR2100_ASSETS}/${name}`;
@@ -47,6 +48,7 @@ const cr2150Asset = (name: string) => `${CR2150_ASSETS}/${name}`;
 const cr2300Asset = (name: string) => `${CR2300_ASSETS}/${name}`;
 const cr2350Asset = (name: string) => `${CR2350_ASSETS}/${name}`;
 const cr2400Asset = (name: string) => `${CR2400_ASSETS}/${name}`;
+const cr2700Asset = (name: string) => `${CR2700_ASSETS}/${name}`;
 
 export const BUILDER_CONFIGS: Record<string, BuilderConfig> = {
   CR2000: {
@@ -771,6 +773,372 @@ export const BUILDER_CONFIGS: Record<string, BuilderConfig> = {
       design2: "07", // Black
       nameNumber: "01", // Black
       collarColour: "04", // Black
+    },
+    defaultLogo: {
+      enabled: true,
+      x: 35,
+      y: 22,
+      scale: 12,
+      url: "/images/logo.png", // Kragbuzz brand logo
+    },
+    defaultPrint: { enabled: true, x: 50, y: 45 },
+  },
+  CR2700: {
+    productId: "CR2700",
+    assetsBase: CR2700_ASSETS,
+    views: {
+      front: {
+        // Layers stack bottom-up by `order` and are recoloured per slot.
+        // Design patterns print on the fabric: above the body, below the
+        // sleeves/collar overlays.
+        layers: [
+          {
+            slot: "base",
+            assetPath: cr2700Asset("front-body.png"),
+            fallbackPath: cr2700Asset("front-base.webp"),
+            available: true,
+            order: 0,
+            label: "Body",
+          },
+          {
+            slot: "design1",
+            assetPath: cr2700Asset("front-design-1.png"),
+            available: true,
+            order: 1,
+            label: "Design 1",
+          },
+          {
+            slot: "design2",
+            assetPath: cr2700Asset("front-design-2.png"),
+            available: true,
+            order: 2,
+            label: "Design 2",
+          },
+          {
+            slot: "sleeves",
+            assetPath: cr2700Asset("front-sleeves.png"),
+            available: true,
+            order: 3,
+            label: "Sleeves",
+          },
+          {
+            slot: "collarColour",
+            // Front collar asset is resolved per selected style — see resolveCollarAsset().
+            // The ring's inner hole is painted flat grey by the renderer
+            // (paintCollarHole) so the in-between-collar area stays grey.
+            assetPath: cr2700Asset("front-collar-1.png"),
+            available: true,
+            order: 4,
+            label: "Collar",
+          },
+          {
+            slot: "sleevesBottom",
+            assetPath: cr2700Asset("front-cuffs.png"),
+            order: 5,
+            label: "Cuffs",
+          },
+        ],
+      },
+      back: {
+        layers: [
+          {
+            slot: "base",
+            assetPath: cr2700Asset("back-body.png"),
+            fallbackPath: cr2700Asset("back-base.webp"),
+            available: true,
+            order: 0,
+            label: "Body",
+          },
+          {
+            slot: "sleeves",
+            assetPath: cr2700Asset("back-sleeves.png"),
+            available: true,
+            order: 1,
+            label: "Sleeves",
+          },
+          {
+            slot: "collarColour",
+            assetPath: cr2700Asset("back-collar.png"),
+            available: true,
+            order: 2,
+            label: "Collar",
+          },
+          {
+            slot: "sleevesBottom",
+            assetPath: cr2700Asset("back-cuffs.png"),
+            order: 3,
+            label: "Cuffs",
+          },
+        ],
+      },
+    },
+    collarStyles: [
+      {
+        id: "polo",
+        name: "Polo Collar",
+        description: "Classic buttoned placket neckline",
+        assetPath: cr2700Asset("front-collar-1.png"),
+      },
+      {
+        id: "crew",
+        name: "Crew Neck",
+        description: "Close-fitting round neckline",
+        assetPath: cr2700Asset("front-collar-2.png"),
+      },
+    ],
+    defaultCollarStyle: "polo",
+    defaultColors: {
+      base: "15", // Red
+      sleeves: "12", // Red
+      sleevesBottom: "02", // Black
+      design1: "02", // White
+      design2: "05", // Black
+      nameNumber: "02", // Black
+      collarColour: "12", // Black
+    },
+    defaultLogo: {
+      enabled: true,
+      x: 35,
+      y: 22,
+      scale: 12,
+      url: "/images/logo.png", // Kragbuzz brand logo
+    },
+    defaultPrint: { enabled: true, x: 50, y: 45 },
+  },
+   CR2800: {
+    productId: "CR2800",
+    assetsBase: CR2700_ASSETS,
+    views: {
+      front: {
+        // Layers stack bottom-up by `order` and are recoloured per slot.
+        // Design patterns print on the fabric: above the body, below the
+        // sleeves/collar overlays.
+        layers: [
+          {
+            slot: "base",
+            assetPath: cr2700Asset("front-body.png"),
+            fallbackPath: cr2700Asset("front-base.webp"),
+            available: true,
+            order: 0,
+            label: "Body",
+          },
+          {
+            slot: "design1",
+            assetPath: cr2700Asset("front-design-1.png"),
+            available: true,
+            order: 1,
+            label: "Design 1",
+          },
+          {
+            slot: "design2",
+            assetPath: cr2700Asset("front-design-2.png"),
+            available: true,
+            order: 2,
+            label: "Design 2",
+          },
+          {
+            slot: "sleeves",
+            assetPath: cr2700Asset("front-sleeves.png"),
+            available: true,
+            order: 3,
+            label: "Sleeves",
+          },
+          {
+            slot: "collarColour",
+            // Front collar asset is resolved per selected style — see resolveCollarAsset().
+            // The ring's inner hole is painted flat grey by the renderer
+            // (paintCollarHole) so the in-between-collar area stays grey.
+            assetPath: cr2700Asset("front-collar-1.png"),
+            available: true,
+            order: 4,
+            label: "Collar",
+          },
+          {
+            slot: "sleevesBottom",
+            assetPath: cr2700Asset("front-cuffs.png"),
+            order: 5,
+            label: "Cuffs",
+          },
+        ],
+      },
+      back: {
+        layers: [
+          {
+            slot: "base",
+            assetPath: cr2700Asset("back-body.png"),
+            fallbackPath: cr2700Asset("back-base.webp"),
+            available: true,
+            order: 0,
+            label: "Body",
+          },
+          {
+            slot: "sleeves",
+            assetPath: cr2700Asset("back-sleeves.png"),
+            available: true,
+            order: 1,
+            label: "Sleeves",
+          },
+          {
+            slot: "collarColour",
+            assetPath: cr2700Asset("back-collar.png"),
+            available: true,
+            order: 2,
+            label: "Collar",
+          },
+          {
+            slot: "sleevesBottom",
+            assetPath: cr2700Asset("back-cuffs.png"),
+            order: 3,
+            label: "Cuffs",
+          },
+        ],
+      },
+    },
+    collarStyles: [
+      {
+        id: "polo",
+        name: "Polo Collar",
+        description: "Classic buttoned placket neckline",
+        assetPath: cr2700Asset("front-collar-1.png"),
+      },
+      {
+        id: "crew",
+        name: "Crew Neck",
+        description: "Close-fitting round neckline",
+        assetPath: cr2700Asset("front-collar-2.png"),
+      },
+    ],
+    defaultCollarStyle: "polo",
+    defaultColors: {
+      base: "11", // Red
+      sleeves: "04", // Red
+      sleevesBottom: "02", // Black
+      design1: "06", // White
+      design2: "14", // Black
+      nameNumber: "01", // Black
+      collarColour: "04", // Black
+    },
+    defaultLogo: {
+      enabled: true,
+      x: 35,
+      y: 22,
+      scale: 12,
+      url: "/images/logo.png", // Kragbuzz brand logo
+    },
+    defaultPrint: { enabled: true, x: 50, y: 45 },
+  },
+   CR2900: {
+    productId: "CR2900",
+    assetsBase: CR2700_ASSETS,
+    views: {
+      front: {
+        // Layers stack bottom-up by `order` and are recoloured per slot.
+        // Design patterns print on the fabric: above the body, below the
+        // sleeves/collar overlays.
+        layers: [
+          {
+            slot: "base",
+            assetPath: cr2700Asset("front-body.png"),
+            fallbackPath: cr2700Asset("front-base.webp"),
+            available: true,
+            order: 0,
+            label: "Body",
+          },
+          {
+            slot: "design1",
+            assetPath: cr2700Asset("front-design-1.png"),
+            available: true,
+            order: 1,
+            label: "Design 1",
+          },
+          {
+            slot: "design2",
+            assetPath: cr2700Asset("front-design-2.png"),
+            available: true,
+            order: 2,
+            label: "Design 2",
+          },
+          {
+            slot: "sleeves",
+            assetPath: cr2700Asset("front-sleeves.png"),
+            available: true,
+            order: 3,
+            label: "Sleeves",
+          },
+          {
+            slot: "collarColour",
+            // Front collar asset is resolved per selected style — see resolveCollarAsset().
+            // The ring's inner hole is painted flat grey by the renderer
+            // (paintCollarHole) so the in-between-collar area stays grey.
+            assetPath: cr2700Asset("front-collar-1.png"),
+            available: true,
+            order: 4,
+            label: "Collar",
+          },
+          {
+            slot: "sleevesBottom",
+            assetPath: cr2700Asset("front-cuffs.png"),
+            order: 5,
+            label: "Cuffs",
+          },
+        ],
+      },
+      back: {
+        layers: [
+          {
+            slot: "base",
+            assetPath: cr2700Asset("back-body.png"),
+            fallbackPath: cr2700Asset("back-base.webp"),
+            available: true,
+            order: 0,
+            label: "Body",
+          },
+          {
+            slot: "sleeves",
+            assetPath: cr2700Asset("back-sleeves.png"),
+            available: true,
+            order: 1,
+            label: "Sleeves",
+          },
+          {
+            slot: "collarColour",
+            assetPath: cr2700Asset("back-collar.png"),
+            available: true,
+            order: 2,
+            label: "Collar",
+          },
+          {
+            slot: "sleevesBottom",
+            assetPath: cr2700Asset("back-cuffs.png"),
+            order: 3,
+            label: "Cuffs",
+          },
+        ],
+      },
+    },
+    collarStyles: [
+      {
+        id: "polo",
+        name: "Polo Collar",
+        description: "Classic buttoned placket neckline",
+        assetPath: cr2700Asset("front-collar-1.png"),
+      },
+      {
+        id: "crew",
+        name: "Crew Neck",
+        description: "Close-fitting round neckline",
+        assetPath: cr2700Asset("front-collar-2.png"),
+      },
+    ],
+    defaultCollarStyle: "polo",
+    defaultColors: {
+      base: "08", // Red
+      sleeves: "03", // Red
+      sleevesBottom: "02", // Black
+      design1: "09", // White
+      design2: "02", // Black
+      nameNumber: "01", // Black
+      collarColour: "09", // Black
     },
     defaultLogo: {
       enabled: true,

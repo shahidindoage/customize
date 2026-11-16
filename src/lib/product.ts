@@ -218,6 +218,81 @@ export const PRODUCTS: Product[] = [
       back: "/products/classic-jersey/CR2400-back.png",
     }
   },
+  {
+    id: "CR2700",
+    slug: "apex-strike-jersey",
+    designId: "CR2700",
+    name: "APEX STRIKE JERSEY",
+    category: "jersey",
+    description:
+      "Sporty jersey with a modern geometric pattern, lightweight breathable fabric, and a performance-focused fit.",
+    features: [
+      "Full-colour sublimation printing",
+      "Choice of collar styles",
+      "Custom logo, name and number",
+    ],
+    price: "₹749",
+    minPrice: "₹899",
+    maxPrice: "₹2499",
+    images: {
+      front: "/products/sublimated-pro-jersey/front-base.webp",
+      back: "/products/sublimated-pro-jersey/back-base.webp",
+    },
+     productCard:{
+      front: "/products//jersey-3/CR2700-front.png",
+      back: "/products//jersey-3/CR2700-back.png",
+    }
+  },
+  {
+    id: "CR2800",
+    slug: "turbo-sport-jersey",
+    designId: "CR2800",
+    name: "TURBO SPORT JERSEY",
+    category: "jersey",
+    description:
+      "Stylish athletic jersey with bold colour detailing, quick-dry technology, and soft fabric for lasting comfort.",
+    features: [
+      "Full-colour sublimation printing",
+      "Choice of collar styles",
+      "Custom logo, name and number",
+    ],
+    price: "₹749",
+    minPrice: "₹999",
+    maxPrice: "₹2499",
+    images: {
+      front: "/products/sublimated-pro-jersey/front-base.webp",
+      back: "/products/sublimated-pro-jersey/back-base.webp",
+    },
+    productCard:{
+      front: "/products//jersey-3/CR2800-front.png",
+      back: "/products//jersey-3/CR2800-back.png",
+    }
+  },
+  {
+    id: "CR2900",
+    slug: "invictus-team-jersey",
+    designId: "CR2900",
+    name: "INVICTUS TEAM JERSEY",
+    category: "jersey",
+    description:
+      "Premium team jersey designed with a contemporary sporty look, durable stitching, and excellent comfort for match days.",
+    features: [
+      "Full-colour sublimation printing",
+      "Choice of collar styles",
+      "Custom logo, name and number",
+    ],
+    price: "₹749",
+    minPrice: "₹1099",
+    maxPrice: "₹2799",
+    images: {
+      front: "/products/sublimated-pro-jersey/front-base.webp",
+      back: "/products/sublimated-pro-jersey/back-base.webp",
+    },
+    productCard:{
+      front: "/products//jersey-3/CR2900-front.png",
+      back: "/products//jersey-3/CR2900-back.png",
+    }
+  },
 
   // === Basketball ===
   // {
